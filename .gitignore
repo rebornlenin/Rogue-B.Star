@@ -1,3 +1,45 @@
-.vs
-bin
-obj
+```
+# Compiled and build artifacts
+*.exe
+*.dll
+*.pdb
+*.obj
+*.lib
+*.so
+*.dylib
+*.a
+*.o
+
+# Dependencies
+packages/
+bin/
+obj/
+Debug/
+Release/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vs/
+.vscode/
+.idea/
+*.userprefs
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+```

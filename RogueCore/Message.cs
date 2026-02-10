@@ -1,88 +1,168 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RogueCore
 {
+    /// <summary>
+    /// Manages a queue of messages for display in a designated area of the screen
+    /// </summary>
     public class Message
     {
-        private const string more = " (more)";
-        private string textQueue = "";
-        private int lineStart;
-        private int numLines;
+        private const string MoreIndicator = " (more)";
+        private readonly Queue<string> _messageQueue = new();
+        private readonly int _lineStart;
+        private readonly int _numLines;
 
-        public Message (int lineStart, int numLines)
+        public Message(int lineStart, int numLines)
         {
-            this.lineStart = lineStart;
-            this.numLines = numLines;
+            _lineStart = lineStart;
+            _numLines = numLines;
         }
 
-        public void Add (string msg)
+        /// <summary>
+        /// Adds a message to the queue
+        /// </summary>
+        /// <param name="msg">The message to add</param>
+        public void Add(string msg)
         {
-            textQueue += msg + " ";
+            if (!string.IsNullOrEmpty(msg))
+            {
+                _messageQueue.Enqueue(msg);
+            }
         }
 
+        /// <summary>
+        /// Clears all messages from the queue
+        /// </summary>
         public void Clear()
         {
-            textQueue = "";
+            _messageQueue.Clear();
         }
 
-        public void ShowMore (Screen screen)
+        /// <summary>
+        /// Displays messages on the screen, showing as many as fit in the allocated space
+        /// </summary>
+        /// <param name="screen">The screen to display messages on</param>
+        public void ShowMore(Screen screen)
         {
             ClearMessageView(screen);
 
-            if ( textQueue.Length == 0 )
+            if (_messageQueue.Count == 0)
             {
 #if DEBUG
-                screen.Print(0, lineStart, "<empty>");
+                screen.Print(0, _lineStart, "<empty>");
 #endif
                 return;
             }
 
-            int charsCount = 0;
+            var displayedChars = 0;
+            var linesUsed = 0;
+            var currentLineText = string.Empty;
 
-            string [] words = textQueue.Split(' ');
-            int y = 0;
-            string text = "";
-
-            for (int i = 0; i < words.Length; i++)
+            // Process messages until we've filled all available lines or run out of messages
+            while (linesUsed < _numLines && _messageQueue.Count > 0)
             {
-                int wordSize = words[i].Length;
+                var nextMessage = _messageQueue.Peek();
+                var words = nextMessage.Split(' ');
 
-                bool lastLine = y == (numLines - 1);
-
-                if ( text.Length + wordSize + (lastLine ? more.Length : 0) >= screen.ScreenWidth )
+                foreach (var word in words)
                 {
-                    screen.Print(0, lineStart + y, text + (lastLine ? more : "") );
-                    charsCount += text.Length;
-                    text = "";
-                    y++;
+                    if (string.IsNullOrEmpty(word)) continue;
 
-                    if (y >= numLines)
-                        break;
+                    var testLine = string.IsNullOrEmpty(currentLineText) 
+                        ? word 
+                        : $"{currentLineText} {word}";
+
+                    var isLastLine = linesUsed == (_numLines - 1);
+                    var requiredSpace = isLastLine 
+                        ? testLine.Length + MoreIndicator.Length 
+                        : testLine.Length;
+
+                    if (requiredSpace > screen.ScreenWidth)
+                    {
+                        // If this line is too long even for a single word, try to fit as much as possible
+                        if (string.IsNullOrEmpty(currentLineText))
+                        {
+                            // Single word is too long, truncate it
+                            if (isLastLine)
+                            {
+                                var truncatedWord = word.Substring(0, Math.Max(0, screen.ScreenWidth - MoreIndicator.Length));
+                                screen.Print(0, _lineStart + linesUsed, truncatedWord + MoreIndicator);
+                            }
+                            else
+                            {
+                                var truncatedWord = word.Substring(0, Math.Max(0, screen.ScreenWidth));
+                                screen.Print(0, _lineStart + linesUsed, truncatedWord);
+                            }
+                            
+                            _messageQueue.Dequeue();
+                            displayedChars += truncatedWord.Length;
+                            linesUsed++;
+                            currentLineText = string.Empty;
+                            
+                            if (linesUsed >= _numLines)
+                                break;
+                        }
+                        else
+                        {
+                            // Current line + word is too long, so print current line and start a new one
+                            if (isLastLine && _messageQueue.Count > 1)
+                            {
+                                screen.Print(0, _lineStart + linesUsed, currentLineText + MoreIndicator);
+                            }
+                            else
+                            {
+                                screen.Print(0, _lineStart + linesUsed, currentLineText);
+                            }
+                            
+                            displayedChars += currentLineText.Length;
+                            linesUsed++;
+                            currentLineText = word; // Start new line with current word
+                            
+                            if (linesUsed >= _numLines)
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        currentLineText = testLine;
+                    }
                 }
 
-                text += words[i] + " ";
+                // If we've processed all words in the current message, remove it from the queue
+                if (words.All(string.IsNullOrEmpty) || currentLineText.EndsWith(words.Last()))
+                {
+                    _messageQueue.Dequeue();
+                    
+                    // If we're moving to a new line or have filled the space, print the current line
+                    if (!string.IsNullOrEmpty(currentLineText))
+                    {
+                        var isLastLine = linesUsed == (_numLines - 1);
+                        if (isLastLine && _messageQueue.Count > 0)
+                        {
+                            screen.Print(0, _lineStart + linesUsed, currentLineText + MoreIndicator);
+                        }
+                        else
+                        {
+                            screen.Print(0, _lineStart + linesUsed, currentLineText);
+                        }
+                        
+                        displayedChars += currentLineText.Length;
+                        linesUsed++;
+                        currentLineText = string.Empty;
+                        
+                        if (linesUsed >= _numLines)
+                            break;
+                    }
+                }
             }
-
-            /// Tail
-
-            if ( text.Length != 0)
-            {
-                screen.Print(0, lineStart + y, text);
-                charsCount += text.Length;
-            }
-
-            textQueue = textQueue.Substring(Math.Min(charsCount, textQueue.Length)).Trim();
         }
 
-        private void ClearMessageView (Screen screen)
+        private void ClearMessageView(Screen screen)
         {
-            for(int y=0; y <numLines; y++)
-                screen.ClearLine(lineStart + y);
+            for (var y = 0; y < _numLines; y++)
+                screen.ClearLine(_lineStart + y);
         }
-
     }
 }
