@@ -1,31 +1,44 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
-using System.Drawing.Text;
+using System.Windows.Forms;
 using System.Windows.Threading;
 
 namespace RogueCore
 {
+    /// <summary>
+    /// Represents a character with color information for the text-based display
+    /// </summary>
     public class Char
     {
-        public Color backColor;
-        public Color frontColor;
-        public char character;
+        public Color BackColor { get; set; }
+        public Color FrontColor { get; set; }
+        public char Character { get; set; }
 
         public Char()
         {
-            backColor = Color.Black;
-            frontColor = Color.LightGray;
-            character = ' ';
+            BackColor = Color.Black;
+            FrontColor = Color.LightGray;
+            Character = ' ';
+        }
+
+        public Char(char character, Color frontColor, Color backColor)
+        {
+            Character = character;
+            FrontColor = frontColor;
+            BackColor = backColor;
+        }
+
+        public Char Clone()
+        {
+            return new Char(Character, FrontColor, BackColor);
         }
     }
 
+    /// <summary>
+    /// A control that emulates a text-based video display with colored characters and cursor support
+    /// </summary>
     public class Screen : Control
     {
         private Char[] _screen;
@@ -34,62 +47,63 @@ namespace RogueCore
 
         public int ScreenWidth
         {
-            get
-            {
-                return _screenWidth;
-            }
+            get => _screenWidth;
             set
             {
                 _screenWidth = value;
-                _screen = new Char[_screenWidth * _screenHeight];
-                ClearScreen();
+                ResizeScreen();
             }
         }
+        
         public int ScreenHeight
         {
-            get
-            {
-                return _screenHeight;
-            }
+            get => _screenHeight;
             set
             {
                 _screenHeight = value;
-                _screen = new Char[_screenWidth * _screenHeight];
-                ClearScreen();
+                ResizeScreen();
             }
         }
 
-        private BufferedGraphics gfx = null;
-        private BufferedGraphicsContext context;
+        private BufferedGraphics _gfx = null;
+        private BufferedGraphicsContext _context;
 
-        private Point CursorPos = new Point();
-        private bool cursorShowToggle = true;
-        private bool cursorVisible = true;
+        private Point _cursorPos = new Point();
+        private bool _cursorShowToggle = true;
+        private bool _cursorVisible = true;
 
         public Screen()
         {
-            SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
 
             ScreenWidth = 80;
             ScreenHeight = 25;
 
-            DispatcherTimer dt = new DispatcherTimer();
-            dt.Interval = new TimeSpan(0, 0, 0, 0, 400);    // ms
-            dt.Tick += new EventHandler(CursorTick);
+            var dt = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(400)
+            };
+            dt.Tick += CursorTick;
             dt.Start();
+        }
+
+        private void ResizeScreen()
+        {
+            _screen = new Char[_screenWidth * _screenHeight];
+            ClearScreen();
         }
 
         private void CursorTick(object sender, EventArgs e)
         {
-            cursorShowToggle = !cursorShowToggle;
+            _cursorShowToggle = !_cursorShowToggle;
             Invalidate();
         }
 
         public void ClearScreen()
         {
-            for(int y=0; y<ScreenHeight; y++)
+            for (var y = 0; y < ScreenHeight; y++)
             {
-                for(int x=0; x<ScreenWidth; x++)
+                for (var x = 0; x < ScreenWidth; x++)
                 {
                     SetChar(x, y, new Char());
                 }
@@ -97,49 +111,44 @@ namespace RogueCore
             Invalidate();
         }
 
-        public void SetChar (int x, int y, Char character)
+        public void SetChar(int x, int y, Char character)
         {
-            if (x < 0 || x >= ScreenWidth)
-                return;
-            if (y < 0 || y >= ScreenHeight)
+            if (!IsValidCoordinate(x, y))
                 return;
 
-            Char copyChar = new Char();
-
-            copyChar.backColor = character.backColor;
-            copyChar.frontColor = character.frontColor;
-            copyChar.character = character.character;
-
-            _screen[y * ScreenWidth + x] = copyChar;
+            _screen[y * ScreenWidth + x] = character?.Clone() ?? new Char();
         }
 
-        public Char GetChar (int x, int y)
+        public Char GetChar(int x, int y)
         {
-            if (x < 0 || x >= ScreenWidth)
-                return new Char();
-            if (y < 0 || y >= ScreenHeight)
+            if (!IsValidCoordinate(x, y))
                 return new Char();
 
-            return _screen[y * ScreenWidth + x];
+            return _screen[y * ScreenWidth + x]?.Clone() ?? new Char();
+        }
+
+        private bool IsValidCoordinate(int x, int y)
+        {
+            return x >= 0 && x < ScreenWidth && y >= 0 && y < ScreenHeight;
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            if (gfx == null)
+            if (_gfx == null)
             {
                 ReallocateGraphics();
             }
 
-            Draw(gfx.Graphics);
+            Draw(_gfx.Graphics);
 
-            gfx.Render(e.Graphics);
+            _gfx.Render(e.Graphics);
         }
 
         protected override void OnSizeChanged(EventArgs e)
         {
-            if (gfx != null)
+            if (_gfx != null)
             {
-                gfx.Dispose();
+                _gfx.Dispose();
                 ReallocateGraphics();
             }
 
@@ -149,10 +158,10 @@ namespace RogueCore
 
         private void ReallocateGraphics()
         {
-            context = BufferedGraphicsManager.Current;
-            context.MaximumBuffer = new Size(Width + 1, Height + 1);
+            _context = BufferedGraphicsManager.Current;
+            _context.MaximumBuffer = new Size(Width + 1, Height + 1);
 
-            gfx = context.Allocate(CreateGraphics(),
+            _gfx = _context.Allocate(CreateGraphics(),
                  new Rectangle(0, 0, Width, Height));
         }
 
@@ -163,16 +172,16 @@ namespace RogueCore
 
             gr.Clear(BackColor);
 
-            var textSize = gr.MeasureString("X", this.Font);
+            var textSize = gr.MeasureString("X", Font);
 
             float charWidth = textSize.Width - 3;
             float charHeight = textSize.Height - 1;
 
-            for (int y = 0; y < ScreenHeight; y++)
+            for (var y = 0; y < ScreenHeight; y++)
             {
-                for (int x = 0; x < ScreenWidth; x++)
+                for (var x = 0; x < ScreenWidth; x++)
                 {
-                    Char character = _screen[y * ScreenWidth + x];
+                    var character = _screen[y * ScreenWidth + x];
 
                     DrawChar(x, y, charWidth, charHeight, gr, character);
                 }
@@ -183,91 +192,91 @@ namespace RogueCore
 
         private void DrawChar(int x, int y, float charWidth, float charHeight, Graphics gr, Char character)
         {
-            string text = new string(character.character, 1);
+            var text = new string(character.Character, 1);
 
-            gr.FillRectangle(new SolidBrush(character.backColor),
+            gr.FillRectangle(new SolidBrush(character.BackColor),
                     x * charWidth, y * charHeight,
                     charWidth, charHeight);
 
-            gr.DrawString(text, this.Font, new SolidBrush(character.frontColor),
+            gr.DrawString(text, Font, new SolidBrush(character.FrontColor),
                 x * charWidth, y * charHeight);
         }
 
-        private void DrawCursor (float charWidth, float charHeight, Graphics gr)
+        private void DrawCursor(float charWidth, float charHeight, Graphics gr)
         {
-            if (CursorPos.X < 0 || CursorPos.X >= ScreenWidth)
+            if (_cursorPos.X < 0 || _cursorPos.X >= ScreenWidth)
                 return;
-            if (CursorPos.Y < 0 || CursorPos.Y >= ScreenHeight)
+            if (_cursorPos.Y < 0 || _cursorPos.Y >= ScreenHeight)
                 return;
 
-            Char cursorChar = new Char();
-            cursorChar.character = '_';
+            var cursorChar = new Char { Character = '_' };
 
-            string text = new string(cursorChar.character, 1);
+            var text = new string(cursorChar.Character, 1);
 
-            if (cursorShowToggle && cursorVisible)
+            if (_cursorShowToggle && _cursorVisible)
             {
-                gr.DrawString(text, this.Font, new SolidBrush(cursorChar.frontColor),
-                    CursorPos.X * charWidth, CursorPos.Y * charHeight + 2);
-                gr.DrawString(text, this.Font, new SolidBrush(cursorChar.frontColor),
-                    CursorPos.X * charWidth, CursorPos.Y * charHeight + 3);
+                gr.DrawString(text, Font, new SolidBrush(cursorChar.FrontColor),
+                    _cursorPos.X * charWidth, _cursorPos.Y * charHeight + 2);
+                gr.DrawString(text, Font, new SolidBrush(cursorChar.FrontColor),
+                    _cursorPos.X * charWidth, _cursorPos.Y * charHeight + 3);
             }
             else
             {
-                gr.DrawString(text, this.Font, new SolidBrush(cursorChar.backColor),
-                    CursorPos.X * charWidth, CursorPos.Y * charHeight + 2);
-                gr.DrawString(text, this.Font, new SolidBrush(cursorChar.backColor),
-                    CursorPos.X * charWidth, CursorPos.Y * charHeight + 3);
+                gr.DrawString(text, Font, new SolidBrush(cursorChar.BackColor),
+                    _cursorPos.X * charWidth, _cursorPos.Y * charHeight + 2);
+                gr.DrawString(text, Font, new SolidBrush(cursorChar.BackColor),
+                    _cursorPos.X * charWidth, _cursorPos.Y * charHeight + 3);
             }
         }
 
-        public void SetCursor (Point point)
+        public void SetCursor(Point point)
         {
-            CursorPos = point;
+            _cursorPos = point;
             Invalidate();
         }
 
-        public Point GetCursor ()
+        public Point GetCursor()
         {
-            return CursorPos;
+            return _cursorPos;
         }
 
-        public void ShowCursor ()
+        public void ShowCursor()
         {
-            cursorVisible = true;
+            _cursorVisible = true;
             Invalidate();
         }
 
         public void HideCursor()
         {
-            cursorVisible = false;
+            _cursorVisible = false;
             Invalidate();
         }
 
-        public bool IsCursorVisible ()
+        public bool IsCursorVisible()
         {
-            return cursorVisible;
+            return _cursorVisible;
         }
 
-        public void ClearLine (int n)
+        public void ClearLine(int n)
         {
             if (n < 0 || n >= ScreenHeight)
                 return;
-            for (int x = 0; x < ScreenWidth; x++)
+            
+            for (var x = 0; x < ScreenWidth; x++)
                 SetChar(x, n, new Char());
+                
             Invalidate();
         }
 
-        public void Print (int x, int y, string text)
+        public void Print(int x, int y, string text)
         {
-            int i = 0;
-
-            while ( i < text.Length)
+            if (text == null) return;
+            
+            for (var i = 0; i < text.Length && x + i < ScreenWidth; i++)
             {
-                Char character = GetChar(x, y);
-                character.character = text[i];
-                SetChar(x, y, character);
-                x++; i++;
+                var character = GetChar(x + i, y);
+                character.Character = text[i];
+                SetChar(x + i, y, character);
             }
 
             Invalidate();
@@ -275,13 +284,13 @@ namespace RogueCore
 
         public void PutChar(char charValue, bool backward = false)
         {
-            Point pos = GetCursor();
+            var pos = GetCursor();
 
             if (backward)
                 pos.X--;
 
-            RogueCore.Char character = GetChar(pos.X, pos.Y);
-            character.character = charValue;
+            var character = GetChar(pos.X, pos.Y);
+            character.Character = charValue;
             SetChar(pos.X, pos.Y, character);
 
             if (!backward)
@@ -294,7 +303,5 @@ namespace RogueCore
         {
             return true;
         }
-
     }
-
 }
