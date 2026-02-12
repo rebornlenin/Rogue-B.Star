@@ -37,38 +37,38 @@ namespace RogueDemo
                     switch (type)
                     {
                         case (int)CellType.Floor:
-                            cell.character.character = '.';
-                            cell.character.frontColor = Color.FromArgb(0xaa, 0xaa, 0xaa);
-                            cell.solid = false;
+                            cell.Character.Character = '.';
+                            cell.Character.FrontColor = Color.FromArgb(0xaa, 0xaa, 0xaa);
+                            cell.Solid = false;
                             break;
                         case (int)CellType.OpenDoor:
-                            cell.character.character = '/';
-                            cell.character.frontColor = Color.FromArgb(0xaa, 0x55, 0);
-                            cell.solid = false;
+                            cell.Character.Character = '/';
+                            cell.Character.FrontColor = Color.FromArgb(0xaa, 0x55, 0);
+                            cell.Solid = false;
                             break;
                         case (int)CellType.ClosedDoor:
-                            cell.character.character = '+';
-                            cell.character.frontColor = Color.FromArgb(0xaa, 0x55, 0);
-                            cell.solid = false;
+                            cell.Character.Character = '+';
+                            cell.Character.FrontColor = Color.FromArgb(0xaa, 0x55, 0);
+                            cell.Solid = false;
                             break;
                         case (int)CellType.DoorWay:
-                            cell.character.character = '.';
-                            cell.character.frontColor = Color.FromArgb(0xaa, 0x55, 0);
-                            cell.solid = false;
+                            cell.Character.Character = '.';
+                            cell.Character.FrontColor = Color.FromArgb(0xaa, 0x55, 0);
+                            cell.Solid = false;
                             break;
                         case (int)CellType.Wall:
-                            cell.character.character = '#';
-                            cell.character.frontColor = Color.FromArgb(0x55, 0x55, 0x55);
-                            cell.solid = true;
+                            cell.Character.Character = '#';
+                            cell.Character.FrontColor = Color.FromArgb(0x55, 0x55, 0x55);
+                            cell.Solid = true;
                             break;
                     }
 
-                    cell.visible = true;
+                    cell.Visible = true;
                 }
             }
 
-            dungeon.GetCell(0, 0).solid = false;
-            dungeon.GetCell(w-1, h-1).solid = false;
+            dungeon.GetCell(0, 0).Solid = false;
+            dungeon.GetCell(w-1, h-1).Solid = false;
 
             return dungeon;
         }

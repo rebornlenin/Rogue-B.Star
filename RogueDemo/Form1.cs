@@ -16,6 +16,7 @@ namespace RogueDemo
         string inputText = "";
         RogueCore.Input input = new RogueCore.Input();
         RogueCore.Dungeon currentDungeon = null;
+        Game game = null;
 
         public Form1()
         {
@@ -24,6 +25,10 @@ namespace RogueDemo
             msg = new RogueCore.Message(0, 2);
 
             input.RegisterHandler(DefaultInputHandler);
+            
+            // Initialize the game
+            game = new Game(rogueScreen1);
+            game.Render();
         }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
@@ -53,9 +58,9 @@ namespace RogueDemo
                 {
                     RogueCore.Char character = new RogueCore.Char();
 
-                    character.backColor = Color.Black;
-                    character.frontColor = RandomColor();
-                    character.character = RandomCharacter();
+                    character.BackColor = Color.Black;
+                    character.FrontColor = RandomColor();
+                    character.Character = RandomCharacter();
 
                     rogueScreen1.SetChar(x, y, character);
                 }
@@ -89,6 +94,12 @@ namespace RogueDemo
         private void rogueScreen1_KeyDown(object sender, KeyEventArgs e)
         {
             input.SendKey(input.Translate(e));
+            
+            // Also send the input to the game
+            if (game != null)
+            {
+                game.ProcessInput(input.Translate(e));
+            }
         }
 
         private void setScreenToRandomSizeToolStripMenuItem_Click(object sender, EventArgs e)
@@ -379,6 +390,12 @@ namespace RogueDemo
 
         private void DefaultInputHandler (RogueCore.KeyInfo key)
         {
+            // Only handle default inputs if game is not running
+            if (game != null && game.IsGameRunning())
+            {
+                return; // Game is handling inputs
+            }
+            
             Point pos = rogueScreen1.GetCursor();
 
             switch (key.KeyCode)
@@ -444,12 +461,12 @@ namespace RogueDemo
         {
             RogueCore.Cell floor = new RogueCore.Cell();
 
-            floor.character = new RogueCore.Char();
-            floor.character.character = '.';
-            floor.character.frontColor = Color.FromArgb(0xaa, 0xaa, 0xaa);
+            floor.Character = new RogueCore.Char();
+            floor.Character.Character = '.';
+            floor.Character.FrontColor = Color.FromArgb(0xaa, 0xaa, 0xaa);
 
-            floor.visible = true;
-            floor.solid = false;
+            floor.Visible = true;
+            floor.Solid = false;
 
             return floor;
         }
@@ -458,12 +475,12 @@ namespace RogueDemo
         {
             RogueCore.Cell wall = new RogueCore.Cell();
 
-            wall.character = new RogueCore.Char();
-            wall.character.character = '#';
-            wall.character.frontColor = Color.FromArgb(0x55, 0x55, 0x55);
+            wall.Character = new RogueCore.Char();
+            wall.Character.Character = '#';
+            wall.Character.FrontColor = Color.FromArgb(0x55, 0x55, 0x55);
 
-            wall.visible = true;
-            wall.solid = true;
+            wall.Visible = true;
+            wall.Solid = true;
 
             return wall;
         }
